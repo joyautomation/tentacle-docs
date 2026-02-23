@@ -13,14 +13,16 @@
     ┌────────────────────────────────────────────────┐
     │        NATS Message Bus + JetStream + KV       │
     └────────────────────────────────────────────────┘
-         │                     │                │
-    ┌────▼────────┐   ┌────────▼────┐   ┌──────▼──────────┐
-    │ tentacle-    │   │ tentacle-   │   │ tentacle-       │
-    │ ethernetip   │   │ mqtt        │   │ graphql         │
-    └────┬────────┘   └────┬───────┘   └─────────────────┘
-         │                 │
-    Allen-Bradley     MQTT Broker
-    PLCs              (Sparkplug B)
+         │          │              │           │
+    ┌────▼────┐ ┌───▼──────┐ ┌────▼────┐ ┌───▼─────────────┐
+    │tentacle-│ │tentacle- │ │tentacle-│ │tentacle-        │
+    │ethernet │ │modbus    │ │mqtt     │ │graphql          │
+    │ip       │ │          │ │         │ │                 │
+    └────┬────┘ └───┬──────┘ └────┬────┘ └─────────────────┘
+         │          │             │
+    Allen-Bradley  Modbus    MQTT Broker
+    PLCs           TCP       (Sparkplug B)
+                   Devices
 ```
 
 ## Tech Stack

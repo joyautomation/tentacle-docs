@@ -1,18 +1,28 @@
 # tentacle-mqtt
 
-Bridges NATS to MQTT using Sparkplug B protocol. Handles both reading (PLC → MQTT) and writing (MQTT DCMD → PLC).
+Bridges NATS to MQTT using Sparkplug B protocol. Handles both reading (variables → MQTT) and writing (MQTT DCMD → variables).
 
 ## Bidirectional Data Flow
 
 ```
-PLC → tentacle-ethernetip → NATS → tentacle-mqtt → Sparkplug B → MQTT Broker
-                                                                      ↓
-PLC ← tentacle-ethernetip ← NATS ← tentacle-mqtt ← DCMD ←───────────────
+Sources → NATS → tentacle-mqtt → Sparkplug B → MQTT Broker
+                                                    ↓
+Variables ← NATS ← tentacle-mqtt ← DCMD ←──────────
 ```
+
+Data sources feeding NATS can include:
+- `tentacle-ethernetip` → EtherNet/IP PLC data
+- `tentacle-opcua-go` → OPC UA server data
+- `tentacle-modbus` → Modbus TCP device data
+- `tentacle-plc` → composed/processed variables
 
 ## Dependencies
 
 Uses `@joyautomation/synapse` for Sparkplug B protocol. See [Sparkplug docs](../protocols/sparkplug.md) for synapse details.
+
+## Sparkplug B UDT Templates
+
+When a variable has a `udtTemplate` defined (in tentacle-plc), tentacle-mqtt publishes it as a Sparkplug B Template Instance rather than a JSON string. Template definitions are published in NBIRTH.
 
 ## DCMD Handling (Write Commands)
 
@@ -22,7 +32,7 @@ When Ignition or another Sparkplug client sends a DCMD:
 2. Emits `dcmd` event with `(topic, payload)`
 3. tentacle-mqtt extracts metric name/value from payload
 4. Publishes to NATS: `{projectId}/{variableId}` with value as string
-5. tentacle-ethernetip receives and writes to PLC
+5. Scanner service (EtherNet/IP, Modbus, etc.) receives and writes to device
 
 ### Key Code Pattern
 
@@ -67,4 +77,4 @@ Uses NATS KV bucket `mqtt-config-{projectId}` for:
 | `mqtt.ts` | Main bridge logic, DCMD handling |
 | `main.ts` | Entry point, config loading |
 | `types/config.ts` | Configuration types |
-| `types/mappings.ts` | Sparkplug ↔ PLC type conversions |
+| `types/mappings.ts` | Sparkplug ↔ variable type conversions |

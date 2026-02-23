@@ -2,10 +2,13 @@
 
 ## Prerequisites
 
-- [Deno](https://deno.land/) installed
+- [Deno](https://deno.land/) installed (backend services)
+- [Node.js](https://nodejs.org/) 20+ installed (tentacle-web)
 - [NATS Server](https://nats.io/) with JetStream enabled
 - (Optional) MQTT broker for Sparkplug B integration
 - (Optional) Allen-Bradley PLC for EtherNet/IP testing
+- (Optional) OPC UA server for OPC UA testing
+- (Optional) Modbus TCP device for Modbus testing
 
 ## Running NATS
 
@@ -17,13 +20,63 @@ docker run -d --name nats -p 4222:4222 nats -js
 docker start nats
 ```
 
-## Environment Variables
+## Running All Services (Recommended)
 
-Create `.env` file in each service directory:
+Use the `dev.sh` script in the repo root to start all services in parallel using [tdev](https://github.com/joyautomation/tdev):
 
 ```bash
-# Shared
+./dev.sh
+```
+
+This starts all services with live reload:
+- tentacle-graphql (port 4000)
+- tentacle-ethernetip
+- tentacle-opcua-go
+- tentacle-mqtt
+- tentacle-modbus
+- tentacle-network
+- tentacle-nftables
+- tentacle-demo (reference PLC application)
+- tentacle-web (port 3012)
+
+## Running Services Individually
+
+Each backend service (Deno) has a `dev` task:
+
+```bash
+# EtherNet/IP scanner
+cd tentacle-ethernetip && deno task dev
+
+# Modbus TCP scanner
+cd tentacle-modbus && deno task dev
+
+# MQTT Sparkplug B bridge
+cd tentacle-mqtt && deno task dev
+
+# GraphQL API
+cd tentacle-graphql && deno task dev
+
+# Web UI (Node.js/npm — NOT Deno)
+cd tentacle-web && npm run dev
+```
+
+## Service Ports
+
+| Service | Port |
+|---------|------|
+| NATS | 4222 |
+| tentacle-graphql | 4000 |
+| tentacle-web | 3012 |
+
+## Environment Variables
+
+Create a `.env` file in each service directory:
+
+```bash
+# Shared (all Deno services)
 NATS_SERVERS=localhost:4222
+
+# tentacle-plc / tentacle-demo
 PROJECT_ID=my-project
 
 # tentacle-mqtt
@@ -33,51 +86,25 @@ MQTT_EDGE_NODE=EdgeNode
 
 # tentacle-graphql
 GRAPHQL_PORT=4000
-GRAPHQL_PLAYGROUND=true
 
-# tentacle-ethernetip
-CLEAR_CACHE=false
+# tentacle-web
+GRAPHQL_URL=http://localhost:4000/graphql
 ```
-
-## Running Services
-
-Each service has a `dev` task:
-
-```bash
-# Terminal 1 - EtherNet/IP scanner
-cd tentacle-ethernetip
-deno task dev
-
-# Terminal 2 - MQTT bridge
-cd tentacle-mqtt
-deno task dev
-
-# Terminal 3 - GraphQL API
-cd tentacle-graphql
-deno task dev
-
-# Terminal 4 - Web UI
-cd tentacle-web
-deno run -A npm:vite dev
-```
-
-## Service Ports
-
-| Service | Port |
-|---------|------|
-| NATS | 4222 |
-| tentacle-graphql | 4000 |
-| tentacle-web | 5173 (dev) |
 
 ## Verifying Everything Works
 
 1. **Check NATS**: `nats server info`
 2. **Check GraphQL**: Open `http://localhost:4000/graphql` in browser
-3. **Check Web UI**: Open `http://localhost:5173`
-4. **Check services**: `ps aux | grep tentacle`
+3. **Check Web UI**: Open `http://localhost:3012`
+4. **Check service topology**: In the web UI, the topology view shows all services with active heartbeats
+
+## Service Discovery
+
+Service discovery is heartbeat-driven — no manual registration needed. Any service that publishes a valid `ServiceHeartbeat` to the `service_heartbeats` KV bucket automatically appears on the topology. Heartbeats are published every 10 seconds with a 60-second TTL.
 
 ## Common First-Time Issues
 
-- **"Connection refused" on NATS**: Make sure NATS is running with `-js` flag
-- **Services don't see each other**: Verify `PROJECT_ID` matches across all `.env` files
-- **Web UI shows no data**: Check that tentacle-graphql is running and connected to NATS
+- **"Connection refused" on NATS**: Make sure NATS is running with the `-js` flag (JetStream required)
+- **Web UI shows no services**: Check that tentacle-graphql is running and connected to NATS
+- **Services don't see each other**: Verify `NATS_SERVERS` is set correctly in each `.env` file
+- **tentacle-web blank page**: Run `npm install` first — Node.js deps aren't auto-installed

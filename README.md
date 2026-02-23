@@ -13,6 +13,7 @@ Tentacle is a distributed IIoT platform built on Deno with NATS as the message b
 | Service | Description | Docs |
 |---------|-------------|------|
 | tentacle-ethernetip | Polls Allen-Bradley PLCs via EtherNet/IP | [Docs](./services/ethernetip.md) |
+| tentacle-modbus | Polls Modbus TCP devices, block reads, all FC groups | [Docs](./services/modbus.md) |
 | tentacle-mqtt | Bridges NATS to MQTT using Sparkplug B | [Docs](./services/mqtt.md) |
 | tentacle-graphql | GraphQL API with real-time subscriptions | [Docs](./services/graphql.md) |
 | tentacle-web | SvelteKit frontend | [Docs](./services/web.md) |
