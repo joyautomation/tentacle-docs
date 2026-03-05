@@ -1,6 +1,39 @@
 # Getting Started
 
-## Prerequisites
+## Installation
+
+Download the latest release from the [tentacle repo](https://github.com/joyautomation/tentacle/releases):
+
+```bash
+# Linux (amd64) — interactive installer
+curl -fSL https://github.com/joyautomation/tentacle/releases/latest/download/tentacle-v0.0.2-linux-amd64.run -o tentacle.run
+chmod +x tentacle.run
+sudo ./tentacle.run
+```
+
+The installer will:
+1. Ask which modules to enable (GraphQL, web, scanners, MQTT)
+2. Choose deployment mode (systemd, Docker Compose, or binary-only)
+3. Configure NATS, GraphQL port, and MQTT settings
+4. Optionally scaffold a PLC project
+
+For other platforms, download the `.tar.gz` or `.zip` archive from the releases page.
+
+### Creating a PLC Project
+
+After installation (or standalone with Deno installed):
+
+```bash
+deno run -A jsr:@joyautomation/create-tentacle-plc my-plc
+cd my-plc
+deno task dev
+```
+
+---
+
+## Development Setup
+
+### Prerequisites
 
 - [Deno](https://deno.land/) installed (backend services)
 - [Node.js](https://nodejs.org/) 20+ installed (tentacle-web)

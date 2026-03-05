@@ -1,6 +1,6 @@
 # tentacle-plc
 
-Lightweight PLC runtime library with task-based programming. Published to JSR as `@joyautomation/tentacle-plc`.
+Lightweight PLC runtime library with task-based programming. Published to JSR as [`@joyautomation/tentacle-plc`](https://jsr.io/@joyautomation/tentacle-plc).
 
 ## Overview
 
@@ -8,12 +8,24 @@ A library (not a standalone service) for creating soft PLC logic in TypeScript/D
 
 Runs as `tentacle-demo` in the dev environment — the demo project is the reference implementation of a tentacle-plc application.
 
+## Quick Start
+
+The fastest way to create a new PLC project:
+
+```bash
+deno run -A jsr:@joyautomation/create-tentacle-plc my-plc
+cd my-plc
+deno task dev
+```
+
+This scaffolds a project with example variables, tasks, and NATS integration.
+
 ## Usage
 
 ```typescript
 import { createPlc } from "@joyautomation/tentacle-plc";
 
-const plc = createPlc({
+const plc = await createPlc({
   projectId: "my-project",
   nats: { servers: "nats://localhost:4222" },
   variables: {
@@ -43,7 +55,7 @@ Variables can be sourced from any protocol scanner service. The PLC handles subs
 ### EtherNet/IP
 
 ```typescript
-import { eipTag } from "@tentacle/plc/ethernetip";
+import { eipTag } from "@joyautomation/tentacle-plc";
 import { rtu45 } from "./generated/ethernetip.ts";
 
 source: eipTag(rtu45, "Program:MainProgram.Motor_Speed")
@@ -52,7 +64,7 @@ source: eipTag(rtu45, "Program:MainProgram.Motor_Speed")
 
 Codegen (requires running tentacle-ethernetip + live device):
 ```typescript
-import { generateEipTypes } from "@tentacle/plc/codegen";
+import { generateEipTypes } from "@joyautomation/tentacle-plc/codegen";
 await generateEipTypes({
   nats: { servers: "nats://localhost:4222" },
   devices: [{ id: "rtu45", host: "192.168.1.10" }],
@@ -63,7 +75,7 @@ await generateEipTypes({
 ### OPC UA
 
 ```typescript
-import { opcuaTag } from "@tentacle/plc/opcua";
+import { opcuaTag } from "@joyautomation/tentacle-plc";
 import { myServer } from "./generated/opcua.ts";
 
 source: opcuaTag(myServer, "ns=2;s=Temperature")
@@ -72,7 +84,7 @@ source: opcuaTag(myServer, "ns=2;s=Temperature")
 
 Codegen (requires running tentacle-opcua-go + live server):
 ```typescript
-import { generateOpcuaTypes } from "@tentacle/plc/codegen";
+import { generateOpcuaTypes } from "@joyautomation/tentacle-plc/codegen";
 await generateOpcuaTypes({
   nats: { servers: "nats://localhost:4222" },
   devices: [{ id: "ignition", endpointUrl: "opc.tcp://ignition:62541" }],
@@ -83,7 +95,7 @@ await generateOpcuaTypes({
 ### Modbus TCP
 
 ```typescript
-import { modbusTag } from "@tentacle/plc/modbus";
+import { modbusTag } from "@joyautomation/tentacle-plc";
 import { pumpSkid } from "./generated/modbus.ts";
 
 source: modbusTag(pumpSkid, "pump_speed")
@@ -92,7 +104,7 @@ source: modbusTag(pumpSkid, "pump_speed")
 
 Codegen (**no live connection needed** — define the register map directly):
 ```typescript
-import { generateModbusTypes } from "@tentacle/plc/codegen";
+import { generateModbusTypes } from "@joyautomation/tentacle-plc/codegen";
 await generateModbusTypes({
   devices: [{
     id: "pump-skid",
