@@ -17,6 +17,7 @@ Tentacle is a distributed IIoT platform built on Deno with NATS as the message b
 | tentacle-ethernetip | Allen-Bradley PLC scanner (EtherNet/IP) | [Docs](./services/ethernetip.md) |
 | tentacle-opcua-go | OPC UA client (Go) | — |
 | tentacle-modbus | Modbus TCP scanner with block reads | [Docs](./services/modbus.md) |
+| tentacle-modbus-server | Modbus TCP server — exposes PLC data to Modbus clients | [Docs](./services/modbus-server.md) |
 | tentacle-mqtt | NATS to MQTT bridge (Sparkplug B) | [Docs](./services/mqtt.md) |
 | tentacle-network | Network interface monitoring (Linux) | — |
 | tentacle-nftables | Firewall and NAT management (Linux) | — |
@@ -48,6 +49,7 @@ All repos live under `github.com/joyautomation/`:
 - [tentacle-ethernetip](https://github.com/joyautomation/tentacle-ethernetip)
 - [tentacle-opcua-go](https://github.com/joyautomation/tentacle-opcua-go)
 - [tentacle-modbus](https://github.com/joyautomation/tentacle-modbus)
+- [tentacle-modbus-server](https://github.com/joyautomation/tentacle-modbus-server)
 - [tentacle-mqtt](https://github.com/joyautomation/tentacle-mqtt)
 - [tentacle-network](https://github.com/joyautomation/tentacle-network)
 - [tentacle-nftables](https://github.com/joyautomation/tentacle-nftables)

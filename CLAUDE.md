@@ -36,6 +36,7 @@ PLCs           Servers      Devices
 | **tentacle-ethernetip** | Polls Allen-Bradley PLCs via EtherNet/IP, publishes to NATS | Deno | N/A |
 | **tentacle-opcua-go** | OPC UA client, subscribes to nodes, publishes to NATS | Go | N/A |
 | **tentacle-modbus** | Modbus TCP scanner, polls registers/coils, publishes to NATS | Deno | N/A |
+| **tentacle-modbus-server** | Modbus TCP server, exposes PLC data to Modbus clients | Deno | N/A |
 | **tentacle-mqtt** | Bridges NATS to MQTT using Sparkplug B protocol | Deno | N/A |
 | **tentacle-graphql** | GraphQL API with real-time subscriptions | Deno | 4000 |
 | **tentacle-web** | SvelteKit frontend with D3 topology visualization | Node.js | 3012 |
@@ -136,7 +137,7 @@ type PlcDataMessage = {
 
 // Service heartbeat for discovery
 type ServiceHeartbeat = {
-  serviceType: "ethernetip" | "plc" | "mqtt" | "graphql" | "modbus" | "opcua" | "network" | "nftables";
+  serviceType: "ethernetip" | "plc" | "mqtt" | "graphql" | "modbus" | "modbus-server" | "opcua" | "network" | "nftables";
   moduleId: string;    // Unique module identifier
   lastSeen: number;
   startedAt: number;
