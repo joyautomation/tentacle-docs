@@ -14,7 +14,7 @@ Default: **4000**
 
 ## Key Features
 
-- **Real-time variable subscriptions**: Subscribes to `*.data.>` on NATS for updates from all modules
+- **Real-time variable subscriptions**: Subscribes to `{moduleId}.data.>` on NATS, scoped per-module. Batches updates every 2.5s to avoid SSE overhead
 - **Service topology**: Reads `service_heartbeats` KV bucket to return live service list
 - **Log streaming**: Subscribes to `service.logs.{serviceType}.>` and forwards via GraphQL subscription
 - **NATS traffic inspector**: Real-time view of NATS message traffic
@@ -25,9 +25,10 @@ Default: **4000**
 ## GraphQL Subscriptions
 
 ```graphql
-# All variable updates from all modules
+# Batched variable updates scoped to a module (recommended)
+# Batches every 2.5s to reduce SSE overhead for high-tag-count scanners
 subscription {
-  variableUpdates {
+  variableBatchUpdates(moduleId: "ethernetip") {
     moduleId
     variableId
     value
@@ -36,10 +37,13 @@ subscription {
   }
 }
 
-# Updates for a specific variable
+# All variable updates from all modules (unbatched, legacy)
 subscription {
-  variableChanged(variableId: "temperature") {
+  variableUpdates(moduleId: "ethernetip") {
+    moduleId
+    variableId
     value
+    datatype
     timestamp
   }
 }

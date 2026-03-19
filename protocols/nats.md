@@ -6,17 +6,22 @@ Topics use a consistent naming convention with substitutable parameters in `{cur
 
 ```
 # Module data (any service publishing variables)
+# Each service owns its own namespace — web UI subscribes per-module
 {moduleId}.data.{variableId}     # Variable value update (pub/sub)
 {moduleId}.command.{variableId}  # Write command to a module's variable
 {moduleId}.variables             # Request all variables from module (request/reply)
 {moduleId}.status                # Module status
 {moduleId}.shutdown              # Graceful shutdown command
 
-# EtherNet/IP scanner
+# EtherNet/IP scanner (Go + libplctag)
+# NOTE: EIP data subjects are multi-level: ethernetip.data.{deviceId}.{tagName}
+# Use `>` wildcard (not `*`) for subscriptions: ethernetip.data.>
+ethernetip.data.{deviceId}.{tagName}   # Tag value update (multi-level subject!)
 ethernetip.subscribe             # Add tag subscription (request/reply)
 ethernetip.unsubscribe           # Remove tag subscription (request/reply)
 ethernetip.browse                # Trigger tag browse (request/reply)
 ethernetip.browse.progress.{browseId}  # Browse progress updates
+ethernetip.variables             # Request all variables (request/reply)
 
 # OPC UA scanner
 opcua.subscribe                  # Add node subscription (request/reply)
@@ -52,10 +57,13 @@ field.response.{deviceId}        # Command responses
 ### Wildcard Subscriptions
 
 ```
-*.data.>       # All variable data from all modules
-*.data.*       # All variable data (single-level)
-service.logs.> # All service logs
+*.data.>                  # All variable data from all modules (multi-level)
+{moduleId}.data.>         # All data from a specific module (recommended for web pages)
+service.logs.>            # All service logs
+service.logs.{svcType}.>  # Logs from one service type
 ```
+
+> **Important**: Use `>` (multi-level) not `*` (single-level). EtherNet/IP uses multi-level subjects like `ethernetip.data.rtu45.TagName`.
 
 ## KV Buckets
 

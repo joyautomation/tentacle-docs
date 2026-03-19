@@ -33,7 +33,7 @@ PLCs           Servers      Devices
 | Service | Purpose | Runtime | Port |
 |---------|---------|---------|------|
 | **tentacle-plc** | Lightweight PLC runtime library with task-based programming | Deno (library) | N/A |
-| **tentacle-ethernetip** | Polls Allen-Bradley PLCs via EtherNet/IP, publishes to NATS | Deno | N/A |
+| **tentacle-ethernetip-go** | Polls Allen-Bradley PLCs via EtherNet/IP (Go + libplctag), publishes to NATS | Go | N/A |
 | **tentacle-opcua-go** | OPC UA client, subscribes to nodes, publishes to NATS | Go | N/A |
 | **tentacle-modbus** | Modbus TCP scanner, polls registers/coils, publishes to NATS | Deno | N/A |
 | **tentacle-modbus-server** | Modbus TCP server, exposes PLC data to Modbus clients | Deno | N/A |
@@ -152,12 +152,22 @@ Heartbeat-driven — no manual registration needed. Any service publishing valid
 
 ## Data Flow Example
 
-1. `tentacle-ethernetip` polls PLC tag "Temperature" = 20.5
-2. Publishes to `ethernetip.data.Temperature`
-3. `tentacle-mqtt` subscribes to `*.data.>`, reads RBE settings from `mqtt-config-...` KV
-4. If change exceeds deadband, publishes via Sparkplug B
-5. `tentacle-graphql` subscribes to `*.data.>`, forwards via GraphQL subscription
-6. `tentacle-web` receives SSE update, renders new value
+Each service publishes to its own NATS namespace. The web UI subscribes per-module:
+
+1. `tentacle-ethernetip-go` polls PLC tags via libplctag (parallel goroutine reads)
+2. Publishes to `ethernetip.data.{deviceId}.{tagName}` (its own namespace)
+3. `tentacle-plc` subscribes to `ethernetip.data.>` for source variables
+4. PLC processes/composes values, publishes to `{projectId}.data.{variableId}`
+5. `tentacle-mqtt` subscribes to `*.data.>`, reads RBE settings from `mqtt-config-...` KV
+6. If change exceeds deadband, publishes via Sparkplug B
+7. `tentacle-graphql` subscribes to `{moduleId}.data.>` per client request, batches updates every 2.5s
+8. `tentacle-web` receives batched SSE updates scoped to the page's module
+
+### Per-Module Subscription Architecture
+
+- **Devices page** (EtherNet/IP): `variableBatchUpdates(moduleId: "ethernetip")`
+- **PLC variables page**: `variableBatchUpdates(moduleId: "{projectId}")`
+- **MQTT metrics page**: Polls `mqttMetrics` via `invalidateAll()` (MQTT uses Sparkplug naming, not variable IDs)
 
 ## Key Dependencies
 
@@ -181,79 +191,57 @@ Heartbeat-driven — no manual registration needed. Any service publishing valid
 
 ---
 
-## tentacle-ethernetip Deep Dive
+## tentacle-ethernetip-go Deep Dive
+
+### Runtime
+
+**Go + CGo + libplctag** — use `go run .` or `go build`. Requires `libplctag.so` installed.
 
 ### Key Architecture Decisions
 
 1. **Subscription-based polling**: Only polls tags with active subscriptions (from tentacle-plc or MQTT config). Browse discovers available tags but doesn't continuously poll them.
 
-2. **One-time value read on browse**: Reads all tag values once during browse so UI shows actual values instead of 0/"unknown".
+2. **Parallel goroutine reads**: Tags are read in parallel batches using goroutines. libplctag internally uses CIP Multi-Service Packets for wire-level batching, reducing round-trips over high-latency links.
 
-3. **NATS KV for caching**: Variable cache stored in NATS JetStream KV. Use `kv.purge()` not `kv.delete()` for complete removal.
+3. **Own NATS namespace**: Publishes to `ethernetip.data.{deviceId}.{tagName}` — multi-level subjects. Use `>` wildcard for subscriptions.
 
-4. **MQTT config change handling**: Scanner listens for `mqtt-config-...` KV changes to dynamically subscribe/unsubscribe tags.
+4. **UDT resolution**: Uses `@tags` for tag listing, `@udt/<id>` for UDT templates. Resolves TIMER, COUNTER, and custom UDTs with zero unnamed members.
+
+5. **One-time value read on browse**: Reads all tag values once during browse so UI shows actual values instead of 0.
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `scanner.ts` | Main polling loop, connection management, browse handler |
-| `template.ts` | UDT template parsing |
-| `mqttConfig.ts` | MQTT variable configuration via NATS KV |
-| `main.ts` | Entry point, `--clear-cache` flag uses `kv.purge()` |
-
-### CIP Protocol Reference
-
-| Type Code | Type |
-|-----------|------|
-| 0xC1 | BOOL |
-| 0xC2 | SINT |
-| 0xC3 | INT |
-| 0xC4 | DINT |
-| 0xCA | REAL |
-| 0xCB | LREAL |
-
-- `typeCodeToDatatype()` converts CIP type codes to string names
-- ForwardOpen may fail (status 0x1) — falls back to UCMM (unconnected messaging)
-- Template parsing for UDTs can have alignment issues — **trust actual PLC response typeCode over template**
+| `main.go` | Entry point, NATS connection, heartbeat, request handlers |
+| `scanner.go` | Tag handle creation, poll loop, parallel read logic |
+| `browse.go` | Tag listing via `@tags`, UDT template resolution |
+| `types.go` | Shared types (PlcConnection, Variable, etc.) |
 
 ### Observability Features
 
-- **Connection state tracking**: disconnected → connecting → connected
-- **Exponential backoff**: 2s, 4s, 8s... up to 60s for reconnection
-- **Periodic status logging**: Every 30s with sample values
+- **Poll cycle timing**: "Poll cycle for rtu45: 1896 tags in 5ms"
+- **Bad status warnings**: Tags that fail with PLCTAG_ERR_NOT_FOUND
+- **Connection state**: Device connections/disconnections
 
-### Bugs Previously Fixed (Don't Reintroduce!)
+### Gotchas
 
-1. **Wrong UDT member datatypes** (VALUE showing as "boolean" instead of "number"):
-   - Root cause: `decodeTagValue()` checked cached datatype BEFORE typeCode from PLC response
-   - Fix: Prioritize typeCode from actual PLC response over cached datatype
-
-2. **Stale data appearing after refresh**:
-   - Cause: Multiple instances running simultaneously; NATS requests answered by old instances
-   - Fix: Kill all instances before starting fresh (`pkill -f tentacle`)
-
-3. **Newly enabled MQTT tags not being polled**:
-   - Cause: `autoSubscribeMqttTags()` only called at startup
-   - Fix: Added `handleMqttConfigChange()` for dynamic subscription sync
+- **Multiple instances**: NATS request/reply answered by ANY running instance — stale data means old instances
+- **libplctag NOT_FOUND**: Some UDT hidden members don't exist on PLC. After `maxCreateRetries` (3), skipped.
+- **Cellular/high-latency**: Parallel reads help but initial tag creation for 1900+ tags can be slow
+- **`>` vs `*` wildcards**: EIP data subjects are multi-level — always use `>`
 
 ### Common Commands
 
 ```bash
 # Check for running instances
-ps aux | grep tentacle
+ps aux | grep ethernetip
 
-# Kill all tentacle processes
-pkill -f tentacle
+# Build and run
+cd tentacle-ethernetip-go && go run .
 
-# Start with cache clear
-deno run -A main.ts --clear-cache
-
-# Verbose debug output
-DEBUG=* deno task dev
-
-# Check NATS KV cache
-nats kv get field-config-tentacle-dev cache.variables.rtu45
+# Run in container
+./tdev.sh restart tentacle-ethernetip-go
 ```
 
 ---
@@ -362,23 +350,10 @@ GRAPHQL_URL=http://localhost:4000/graphql  # Server-side only
 
 ---
 
-## tentacle-ethernetip Write Support
+## tentacle-ethernetip-go Write Support
 
 ### How Writes Work
 
-1. Subscribes to NATS subject `>` and filters for `{projectId}/*`
-2. When message arrives on `{projectId}/{variableId}`:
-   - Finds which PLC connection has that variable
-   - Looks up the variable's datatype
-   - Encodes value to `Uint8Array` using CIP type codes
-   - Calls `writeTag()` to write to PLC
-
-### CIP Type Codes for Writing
-
-```typescript
-const TYPE_MAP: Record<string, number> = {
-  "BOOL": 0xc1, "SINT": 0xc2, "INT": 0xc3, "DINT": 0xc4,
-  "LINT": 0xc5, "USINT": 0xc6, "UINT": 0xc7, "UDINT": 0xc8,
-  "ULINT": 0xc9, "REAL": 0xca, "LREAL": 0xcb,
-};
-```
+1. Subscribes to `ethernetip.command.{variableId}`
+2. Finds which PLC connection has that variable
+3. Creates a libplctag write handle, encodes value, writes to PLC

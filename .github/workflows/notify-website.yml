@@ -1,0 +1,17 @@
+name: Notify joyautomation.com to rebuild
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger joyautomation.com rebuild
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DISPATCH_TOKEN }}
+          repository: joyautomation/joyautomation.com
+          event-type: docs-updated

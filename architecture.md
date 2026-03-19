@@ -27,23 +27,27 @@
 
 ## Tech Stack
 
-- **Runtime**: Deno (all backend services)
+- **Runtime**: Deno (most backend services), Go (tentacle-ethernetip-go, tentacle-opcua-go)
 - **Frontend**: SvelteKit 2.9, Svelte 5, TypeScript 5.6, Vite 6
 - **Messaging**: NATS with JetStream and KV stores
 - **MQTT**: Sparkplug B via @joyautomation/synapse
 - **GraphQL**: graphql-yoga + Pothos schema builder
+- **EtherNet/IP**: Go + CGo + libplctag (CIP Multi-Service Packet batching)
 
 ## Data Flow
 
 ### Reading from PLCs (PLC → Cloud)
 
-1. `tentacle-ethernetip` polls PLC tag "Temperature" = 20.5
-2. Publishes to NATS topic `plc.data.my-project.Temperature` with deadband config
-3. `tentacle-mqtt` subscribes to `plc.data.my-project.>`
-4. Reads RBE settings from `mqtt-config-my-project` KV bucket
-5. If change exceeds deadband, publishes via Sparkplug B DDATA
-6. `tentacle-graphql` watches `plc_variables` KV bucket
-7. Emits GraphQL subscription update to connected clients
+Each service publishes to its own NATS namespace. The web UI subscribes per-module:
+
+1. `tentacle-ethernetip-go` polls PLC tags via libplctag (CIP batch reads)
+2. Publishes to `ethernetip.data.{deviceId}.{tagName}` (its own namespace)
+3. `tentacle-plc` subscribes to `ethernetip.data.>` for its source variables
+4. PLC processes/composes values, publishes to `{projectId}.data.{variableId}` (its own namespace)
+5. `tentacle-mqtt` subscribes to `*.data.>`, reads RBE settings from `mqtt-config-{projectId}` KV
+6. If change exceeds deadband, publishes via Sparkplug B DDATA
+7. `tentacle-graphql` subscribes to `{moduleId}.data.>` per client request, batches updates every 2.5s
+8. `tentacle-web` receives batched SSE updates scoped to the page's module
 
 ### Writing to PLCs (Cloud → PLC)
 

@@ -30,7 +30,10 @@ npm run dev
 - **Topology view**: D3-force graph showing live service topology. Nodes are clickable — navigate to service detail pages. Topology is heartbeat-driven; services appear automatically when their heartbeat is detected.
 - **Service detail pages**: `/services/[serviceType]` — Overview tab + Logs tab with real-time log streaming
 - **Real-time log streaming**: GraphQL subscription → SSE → LogViewer component with level filtering and auto-scroll
-- **Variable monitoring**: Real-time variable values via GraphQL subscriptions
+- **Variable monitoring**: Real-time variable values via per-module GraphQL subscriptions (`variableBatchUpdates` with `moduleId`)
+- **Devices page** (EtherNet/IP): Subscribes to `variableBatchUpdates(moduleId: "ethernetip")` — only shows scanner data
+- **PLC variables page**: Subscribes to `variableBatchUpdates(moduleId: "{projectId}")` — only shows PLC data
+- **MQTT metrics page**: Polls `mqttMetrics` via `invalidateAll()` every 2.5s (MQTT uses Sparkplug naming, not variable IDs, so subscriptions don't match)
 - **Network management**: View and configure network interfaces
 - **NAT rules**: View and manage nftables NAT configuration
 
