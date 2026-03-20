@@ -30,19 +30,21 @@ PLCs           Servers      Devices
 
 ## Services
 
-| Service | Purpose | Runtime | Port |
-|---------|---------|---------|------|
-| **tentacle-plc** | Lightweight PLC runtime library with task-based programming | Deno (library) | N/A |
-| **tentacle-ethernetip-go** | Polls Allen-Bradley PLCs via EtherNet/IP (Go + libplctag), publishes to NATS | Go | N/A |
-| **tentacle-opcua-go** | OPC UA client, subscribes to nodes, publishes to NATS | Go | N/A |
-| **tentacle-modbus** | Modbus TCP scanner, polls registers/coils, publishes to NATS | Deno | N/A |
-| **tentacle-modbus-server** | Modbus TCP server, exposes PLC data to Modbus clients | Deno | N/A |
-| **tentacle-mqtt** | Bridges NATS to MQTT using Sparkplug B protocol | Deno | N/A |
-| **tentacle-graphql** | GraphQL API with real-time subscriptions | Deno | 4000 |
-| **tentacle-web** | SvelteKit frontend with D3 topology visualization | Node.js | 3012 |
-| **tentacle-network** | Network interface monitoring and netplan configuration | Deno | N/A |
-| **tentacle-nftables** | nftables NAT rule management | Deno | N/A |
-| **tentacle-nats-schema** | Shared TypeScript types and message validators | N/A (library) | N/A |
+| Service | Repo | Purpose | Runtime | Port |
+|---------|------|---------|---------|------|
+| **tentacle** | [GitHub](https://github.com/joyautomation/tentacle) | Core orchestration and deployment | Deno | N/A |
+| **tentacle-plc** | [GitHub](https://github.com/joyautomation/tentacle-plc) | Lightweight PLC runtime library with task-based programming | Deno (library) | N/A |
+| **tentacle-ethernetip-go** | [GitHub](https://github.com/joyautomation/tentacle-ethernetip-go) | Polls Allen-Bradley PLCs via EtherNet/IP (Go + libplctag), publishes to NATS | Go | N/A |
+| **tentacle-opcua-go** | [GitHub](https://github.com/joyautomation/tentacle-opcua-go) | OPC UA client, subscribes to nodes, publishes to NATS | Go | N/A |
+| **tentacle-modbus** | [GitHub](https://github.com/joyautomation/tentacle-modbus) | Modbus TCP scanner, polls registers/coils, publishes to NATS | Deno | N/A |
+| **tentacle-modbus-server** | [GitHub](https://github.com/joyautomation/tentacle-modbus-server) | Modbus TCP server, exposes PLC data to Modbus clients | Deno | N/A |
+| **tentacle-mqtt** | [GitHub](https://github.com/joyautomation/tentacle-mqtt) | Bridges NATS to MQTT using Sparkplug B protocol | Deno | N/A |
+| **tentacle-graphql** | [GitHub](https://github.com/joyautomation/tentacle-graphql) | GraphQL API with real-time subscriptions | Deno | 4000 |
+| **tentacle-web** | [GitHub](https://github.com/joyautomation/tentacle-web) | SvelteKit frontend with D3 topology visualization | Deno | 3012 |
+| **tentacle-network** | [GitHub](https://github.com/joyautomation/tentacle-network) | Network interface monitoring and netplan configuration | Deno | N/A |
+| **tentacle-nftables** | [GitHub](https://github.com/joyautomation/tentacle-nftables) | nftables NAT rule management | Deno | N/A |
+| **tentacle-nats-schema** | [GitHub](https://github.com/joyautomation/tentacle-nats-schema) | Shared TypeScript types and message validators | N/A (library) | N/A |
+| **tentacle-docs** | [GitHub](https://github.com/joyautomation/tentacle-docs) | Platform documentation | N/A | N/A |
 
 ## Running Services
 
@@ -53,8 +55,8 @@ PLCs           Servers      Devices
 # Individual Deno services
 cd tentacle-{service} && deno task dev
 
-# Web UI (Node.js — NOT Deno)
-cd tentacle-web && npm run dev
+# Web UI
+cd tentacle-web && deno task dev
 ```
 
 ## Environment Variables
@@ -312,7 +314,7 @@ node.events.on("dcmd", (topic: SparkplugTopic, payload: UPayload) => {
 
 ### Runtime
 
-**Runs on Node.js / npm** — use `npm run dev` and `npm run build`. Do NOT use Deno commands.
+**Runs on Deno** — use `deno task dev` and `deno task build`.
 
 ### Server-Side Architecture
 
@@ -357,3 +359,210 @@ GRAPHQL_URL=http://localhost:4000/graphql  # Server-side only
 1. Subscribes to `ethernetip.command.{variableId}`
 2. Finds which PLC connection has that variable
 3. Creates a libplctag write handle, encodes value, writes to PLC
+
+---
+
+## tentacle-opcua-go Deep Dive
+
+### Runtime
+
+**Go + gopcua** — use `go run .` or `go build`. No CGo required (pure Go OPC UA client).
+
+### Key Architecture Decisions
+
+1. **Subscriber-driven**: Zero connections at startup. Devices connect on-demand when `opcua.subscribe` or `opcua.browse` requests arrive.
+
+2. **Event-driven subscriptions**: Unlike EIP (continuous polling), uses gopcua's built-in `NodeMonitor` with `ChanSubscribe()` for push-based data change notifications.
+
+3. **Temporary browse connections**: Browse creates a temporary connection, disconnects after completion, but retains cached variable metadata in memory.
+
+4. **Per-device subscriptions**: Multiple subscribers can monitor the same device independently. A single `NodeMonitor` per connection serves ALL subscribers.
+
+5. **Certificate-based auth**: Self-signed certificates auto-generated for secure OPC UA connections.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `main.go` | Entry point, NATS connection, heartbeat, shutdown |
+| `scanner.go` | Connection management, subscriber tracking, data publishing |
+| `browse.go` | Recursive address space traversal, datatype resolution |
+| `types.go` | Type definitions, datatype mapping functions |
+| `cert.go` | Certificate generation/loading for secure channels |
+
+### NATS Topics
+
+```
+opcua.subscribe              # Start monitoring node values
+opcua.unsubscribe            # Stop monitoring nodes
+opcua.browse                 # Discover variables (sync or async)
+opcua.browse.progress.{browseId}  # Async browse progress
+opcua.variables              # List all discovered/subscribed variables
+opcua.data.{deviceId}.{sanitizedNodeId}  # Variable value changes
+opcua.command.{variableId}   # Write value to OPC UA node
+```
+
+### NodeID Sanitization
+
+OPC UA NodeIDs like `ns=2;s=MyTag.SubTag` are sanitized to `ns_2_s_MyTag_SubTag` for NATS subject compatibility. Subjects are multi-level — use `>` wildcard.
+
+### Gotchas
+
+- **Multiple instances**: Same as EIP — NATS request/reply answered by ANY instance
+- **Temporary connections**: Browse disconnects after completion; variable cache persists for subsequent subscriptions
+- **Channel buffer**: 256-element data change buffer. High-frequency updates (1000+/sec) may overflow
+- **Cleanup on zero subscribers**: Last unsubscribe immediately closes the OPC UA connection
+- **`>` vs `*` wildcards**: OPC UA data subjects are multi-level — always use `>`
+
+### Environment Variables
+
+```bash
+NATS_SERVERS=localhost:4222
+OPCUA_PKI_DIR=./pki
+OPCUA_AUTO_ACCEPT_CERTS=true  # Auto-accept server certs (testing only)
+```
+
+---
+
+## tentacle-network Deep Dive
+
+### Runtime
+
+**Deno** — use `deno task dev`. Requires Linux with sysfs (`/sys/class/net`) and `ip` command.
+
+### Key Architecture Decisions
+
+1. **Kernel-sourced ground truth**: Never caches interface state. Always reads fresh from `/sys/class/net` and `ip` commands.
+
+2. **Two-layer state model**:
+   - **Live state**: Actual interface state from kernel (operstate, carrier, speed, stats)
+   - **Config state**: Persistent configuration via netplan (DHCP, static addresses, gateway, DNS, MTU)
+
+3. **Netplan as source of truth**: Writes to `/etc/netplan/60-tentacle.yaml`, backs up other netplan files to `.yaml.bak`.
+
+4. **Sparkplug B UDT metrics**: Network interfaces published as UDTs with change detection per interface.
+
+5. **Virtual interface filtering**: Excludes container/VM interfaces (veth, docker, tap, vnet, dummy, etc.) from Sparkplug B metrics — live state still includes all.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `main.ts` | Entry point, NATS handlers, heartbeat, periodic publishing |
+| `src/monitor/interfaces.ts` | Reads live interface state from sysfs + `ip -j addr show` |
+| `src/commands/netplan.ts` | YAML generation/parsing, netplan file management |
+| `src/metrics/publisher.ts` | Sparkplug B UDT messages, change detection |
+| `src/utils/logger.ts` | NATS log streaming |
+
+### NATS Topics
+
+```
+network.interfaces                    # Periodic snapshots (every 10s)
+network.state                         # Request/reply for fresh state
+network.command                       # Config commands (get-config, apply-config, add-address, remove-address)
+network.command.>                     # Field-level commands from Sparkplug B DCMD
+network.data.{interfaceName}          # Sparkplug B UDT metrics per interface
+network.shutdown                      # Graceful shutdown
+service.logs.network.network          # Log streaming
+```
+
+### Configuration Commands
+
+| Action | Purpose |
+|--------|---------|
+| `get-config` | Merges all `/etc/netplan/*.yaml` files in sorted order |
+| `apply-config` | Validates, writes netplan YAML, backs up others, runs `netplan apply` |
+| `add-address` | Runs `ip addr add` (treats "File exists" as success) |
+| `remove-address` | Runs `ip addr del` (treats "Cannot assign" as success) |
+
+### Gotchas
+
+- **Netplan apply delay**: 2-second delay after config apply before re-publishing state
+- **Field commands only on config**: Sparkplug B DCMD on live metrics (e.g., speed) silently ignored
+- **Address format**: Requires CIDR notation with prefix length (e.g., `192.168.1.100/24`)
+- **MTU bounds**: Validated 68–65535
+- **No rollback on failure**: If `netplan apply` fails, YAML is already written but not applied
+
+---
+
+## tentacle-nftables Deep Dive
+
+### Runtime
+
+**Deno** — use `deno task dev`. Requires Linux with `nft` and `sysctl` commands.
+
+### Key Architecture Decisions
+
+1. **Unified NatRule model**: Single rule type combines DNAT + optional Double NAT (SNAT).
+
+2. **Atomic rule application**: Uses `nft -f` to load rules atomically. Deletes and recreates only `table ip tentacle_nat` — preserves all other system firewall rules.
+
+3. **Dual storage**: Config as structured JSON (`/etc/tentacle/nftables.json`) AND generated nft syntax (`/etc/nftables.d/60-tentacle-nat.conf`).
+
+4. **Automatic IP alias management**: Computes required aliases from enabled NAT rules, syncs via `tentacle-network` request/reply.
+
+5. **Live state always fresh**: Never caches ruleset; reads from kernel via `nft -j list ruleset` on every request.
+
+6. **Backward compatibility**: Auto-converts old `portForwards` + `snatRules` format to unified `natRules`.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `main.ts` | Entry point, NATS handlers, IP alias management, heartbeat |
+| `src/commands/nftables.ts` | Config I/O, nft syntax generation, atomic rule application |
+| `src/monitor/ruleset.ts` | Reads live nftables state via `nft -j list ruleset` |
+| `src/metrics/publisher.ts` | Sparkplug B UDT metrics per NAT rule, change detection |
+| `src/utils/logger.ts` | NATS log streaming |
+
+### NATS Topics
+
+```
+nftables.rules                        # Periodic broadcast of config + metrics (10s)
+nftables.state                        # Request/reply for live ruleset
+nftables.command                      # Config commands (get-config, apply-config)
+nftables.command.>                    # Field-level commands from Sparkplug B DCMD
+nftables.data.{ruleKey}              # Sparkplug B UDT metrics per NAT rule
+nftables.shutdown                     # Graceful shutdown
+network.state                         # Request to tentacle-network for interface info
+network.command                       # Request to tentacle-network for add/remove address
+```
+
+### NAT Rule Model
+
+```typescript
+type NatRule = {
+  id: string;
+  enabled: boolean;
+  protocol: "tcp" | "udp" | "icmp" | "all";
+  connectingDevices: string;     // "any", IP, range, or CIDR
+  incomingInterface: string;
+  outgoingInterface: string;
+  natAddr: string;               // Destination NAT IP (on incoming interface subnet)
+  originalPort: string;          // Port or range "80" or "80-90"
+  translatedPort: string;
+  deviceAddr: string;            // Target device IP
+  deviceName: string;
+  doubleNat: boolean;            // Enable SNAT for return traffic
+  doubleNatAddr: string;         // SNAT alias IP on outgoing interface
+  comment: string;
+};
+```
+
+### Config File Paths
+
+| Path | Purpose |
+|------|---------|
+| `/etc/tentacle/nftables.json` | Structured NAT rules config |
+| `/etc/nftables.d/60-tentacle-nat.conf` | Generated nft syntax (applied atomically) |
+| `/etc/tentacle/managed-aliases.json` | Tracked IP aliases for cleanup |
+| `/etc/sysctl.d/60-tentacle.conf` | Persisted IPv4 forwarding |
+
+### Gotchas
+
+- **IPv4 forwarding**: Auto-enabled on startup via `sysctl` and persisted — required for NAT
+- **Table isolation**: Only manages `table ip tentacle_nat` — never flushes system rules
+- **IP alias prefix**: Queries `tentacle-network` for interface subnet prefix length, falls back to /24
+- **Disabled rules**: Excluded from nft syntax generation; aliases only created for enabled rules
+- **No partial applies**: Field-level DCMD updates re-apply the full config
+- **Legacy conversion**: Old `portForwards`/`snatRules` auto-converted; standalone SNATs without matching DNAT are discarded
