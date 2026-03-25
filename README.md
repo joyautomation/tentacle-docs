@@ -10,24 +10,30 @@ Tentacle is a distributed IIoT platform built on Deno with NATS as the message b
 
 ## Services
 
-| Service | Description | Docs |
-|---------|-------------|------|
-| tentacle-graphql | GraphQL API with real-time subscriptions (SSE) | [Docs](./services/graphql.md) |
-| tentacle-web | SvelteKit dashboard with topology view and log streaming | [Docs](./services/web.md) |
-| tentacle-ethernetip | Allen-Bradley PLC scanner (EtherNet/IP) | [Docs](./services/ethernetip.md) |
-| tentacle-opcua-go | OPC UA client (Go) | — |
-| tentacle-modbus | Modbus TCP scanner with block reads | [Docs](./services/modbus.md) |
-| tentacle-modbus-server | Modbus TCP server — exposes PLC data to Modbus clients | [Docs](./services/modbus-server.md) |
-| tentacle-mqtt | NATS to MQTT bridge (Sparkplug B) | [Docs](./services/mqtt.md) |
-| tentacle-network | Network interface monitoring (Linux) | — |
-| tentacle-nftables | Firewall and NAT management (Linux) | — |
+| Service | Runtime | Description | Docs |
+|---------|---------|-------------|------|
+| tentacle-graphql | Deno | GraphQL API with real-time subscriptions (SSE) | [Docs](./services/graphql.md) |
+| tentacle-web | Deno | SvelteKit dashboard with topology view and log streaming | [Docs](./services/web.md) |
+| tentacle-gateway | Deno | Config-driven PLC runtime — reads device/variable config from NATS KV and builds a tentacle-plc instance | — |
+| tentacle-ethernetip-go | Go | Allen-Bradley PLC scanner (EtherNet/IP via libplctag) | [Docs](./services/ethernetip.md) |
+| tentacle-ethernetip-server-go | Go | EtherNet/IP server — exposes PLC data to EtherNet/IP clients | — |
+| tentacle-opcua-go | Go | OPC UA client (gopcua) | — |
+| tentacle-modbus | Deno | Modbus TCP scanner with block reads | [Docs](./services/modbus.md) |
+| tentacle-modbus-server | Deno | Modbus TCP server — exposes PLC data to Modbus clients | [Docs](./services/modbus-server.md) |
+| tentacle-snmp | Go | SNMP scanner and trap listener (gosnmp) | — |
+| tentacle-mqtt | Deno | NATS to MQTT bridge (Sparkplug B) with store-and-forward | [Docs](./services/mqtt.md) |
+| tentacle-history | Deno | Edge-local TimescaleDB historian with RBE filtering and time-bucketed aggregation | — |
+| tentacle-mcp | Deno | MCP server — exposes GraphQL API as tools for AI agents | — |
+| tentacle-network | Deno | Network interface monitoring and netplan configuration (Linux) | — |
+| tentacle-nftables | Deno | Firewall and NAT management via nftables (Linux) | — |
+| tentacle-demo | Deno | Example PLC project using tentacle-plc (EtherNet/IP and SNMP demos) | — |
 
 ## Libraries
 
 | Package | Description | Docs |
 |---------|-------------|------|
 | tentacle-plc | PLC runtime library for variables and tasks | [Docs](./services/plc.md) |
-| tentacle-nats-schema | Shared NATS topic and message type definitions | [Docs](./services/nats-schema.md) |
+| tentacle-nats-schema | Shared NATS topic and message type definitions (published to JSR) | [Docs](./services/nats-schema.md) |
 | create-tentacle-plc | Project scaffolding tool | [Docs](./services/plc.md) |
 
 ## Protocols
@@ -46,11 +52,17 @@ All repos live under `github.com/joyautomation/`:
 **Services:**
 - [tentacle-graphql](https://github.com/joyautomation/tentacle-graphql)
 - [tentacle-web](https://github.com/joyautomation/tentacle-web)
-- [tentacle-ethernetip](https://github.com/joyautomation/tentacle-ethernetip)
+- [tentacle-gateway](https://github.com/joyautomation/tentacle-gateway)
+- [tentacle-ethernetip-go](https://github.com/joyautomation/tentacle-ethernetip-go)
+- [tentacle-ethernetip-server-go](https://github.com/joyautomation/tentacle-ethernetip-server-go)
 - [tentacle-opcua-go](https://github.com/joyautomation/tentacle-opcua-go)
 - [tentacle-modbus](https://github.com/joyautomation/tentacle-modbus)
 - [tentacle-modbus-server](https://github.com/joyautomation/tentacle-modbus-server)
+- [tentacle-snmp](https://github.com/joyautomation/tentacle-snmp)
+- [tentacle-demo](https://github.com/joyautomation/tentacle-demo)
 - [tentacle-mqtt](https://github.com/joyautomation/tentacle-mqtt)
+- [tentacle-history](https://github.com/joyautomation/tentacle-history)
+- [tentacle-mcp](https://github.com/joyautomation/tentacle-mcp)
 - [tentacle-network](https://github.com/joyautomation/tentacle-network)
 - [tentacle-nftables](https://github.com/joyautomation/tentacle-nftables)
 
