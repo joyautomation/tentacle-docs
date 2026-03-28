@@ -8,27 +8,27 @@
 │ (PLC Runtime)    │         │ (SvelteKit UI)   │
 └────────┬─────────┘         └────────┬─────────┘
          │                            │
-         │ NATS Topics                │ GraphQL
+         │ NATS Topics                │ GraphQL (SSE)
          ▼                            ▼
     ┌────────────────────────────────────────────────┐
     │        NATS Message Bus + JetStream + KV       │
     └────────────────────────────────────────────────┘
-         │          │             │          │
-    ┌────▼────┐ ┌───▼──────┐ ┌────▼────┐ ┌───▼─────────────┐
-    │tentacle-│ │tentacle- │ │tentacle-│ │tentacle-        │
-    │ethernet │ │modbus    │ │mqtt     │ │graphql          │
-    │ip       │ │          │ │         │ │                 │
-    └────┬────┘ └───┬──────┘ └────┬────┘ └─────────────────┘
-         │          │             │
-    Allen-Bradley  Modbus    MQTT Broker
-    PLCs           TCP       (Sparkplug B)
-                   Devices
+     │          │          │          │          │
+┌────▼────┐ ┌───▼────┐ ┌───▼────┐ ┌───▼──────┐ ┌───▼────────────┐
+│tentacle-│ │tentacle│ │tentacle│ │tentacle- │ │tentacle-       │
+│ethernet │ │-modbus │ │-mqtt   │ │graphql   │ │orchestrator    │
+│ip-go    │ │        │ │        │ │          │ │(service mgmt)  │
+└────┬────┘ └───┬────┘ └───┬────┘ └──────────┘ └────────────────┘
+     │          │          │
+Allen-Bradley  Modbus    MQTT Broker
+PLCs           TCP       (Sparkplug B)
+               Devices
 ```
 
 ## Tech Stack
 
 - **Runtime**: Deno (most backend services), Go (tentacle-ethernetip-go,
-  tentacle-opcua-go)
+  tentacle-opcua-go, tentacle-snmp)
 - **Frontend**: SvelteKit 2.9, Svelte 5, TypeScript 5.6, Vite 6
 - **Messaging**: NATS with JetStream and KV stores
 - **MQTT**: Sparkplug B via @joyautomation/synapse

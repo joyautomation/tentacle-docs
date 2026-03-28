@@ -14,6 +14,7 @@ Tentacle is a distributed IIoT platform built on Deno with NATS as the message b
 |---------|---------|-------------|------|
 | tentacle-graphql | Deno | GraphQL API with real-time subscriptions (SSE) | [Docs](./services/graphql.md) |
 | tentacle-web | Deno | SvelteKit dashboard with topology view and log streaming | [Docs](./services/web.md) |
+| tentacle-orchestrator | Deno | Bare-metal service orchestrator — reconciles desired_services KV with systemd | [Docs](./services/orchestrator.md) |
 | tentacle-gateway | Deno | Config-driven PLC runtime — reads device/variable config from NATS KV and builds a tentacle-plc instance | — |
 | tentacle-ethernetip-go | Go | Allen-Bradley PLC scanner (EtherNet/IP via libplctag) | [Docs](./services/ethernetip.md) |
 | tentacle-ethernetip-server-go | Go | EtherNet/IP server — exposes PLC data to EtherNet/IP clients | — |
@@ -52,6 +53,7 @@ All repos live under `github.com/joyautomation/`:
 **Services:**
 - [tentacle-graphql](https://github.com/joyautomation/tentacle-graphql)
 - [tentacle-web](https://github.com/joyautomation/tentacle-web)
+- [tentacle-orchestrator](https://github.com/joyautomation/tentacle-orchestrator)
 - [tentacle-gateway](https://github.com/joyautomation/tentacle-gateway)
 - [tentacle-ethernetip-go](https://github.com/joyautomation/tentacle-ethernetip-go)
 - [tentacle-ethernetip-server-go](https://github.com/joyautomation/tentacle-ethernetip-server-go)

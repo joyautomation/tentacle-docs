@@ -73,8 +73,40 @@ service.logs.{svcType}.>  # Logs from one service type
 | `plc_variables` | `{variableId}` | Shared variable state (from nats-schema) |
 | `plc-variables-{projectId}` | `{variableId}` | Per-project PLC variable persistence |
 | `mqtt-config-{projectId}` | `{variableId}` | Per-variable MQTT settings |
+| `service_enabled` | `{moduleId}` | Service enable/disable state (boolean) |
+| `desired_services` | `{moduleId}` | Orchestrator desired state — version + running (no TTL) |
+| `service_status` | `{moduleId}` | Orchestrator reported status — 120s TTL, auto-expires if orchestrator dies |
 
 > **Note**: `plc_variables` is defined in the nats-schema spec. `plc-variables-{projectId}` is used by tentacle-plc instances for their own state persistence.
+
+### Orchestrator KV Detail
+
+The `desired_services` and `service_status` buckets are used by [tentacle-orchestrator](../services/orchestrator.md) for bare-metal service management:
+
+```typescript
+// desired_services — what should be running
+type DesiredServiceKV = {
+  moduleId: string;    // e.g. "tentacle-mqtt"
+  version: string;     // e.g. "0.0.5" or "latest"
+  running: boolean;    // should the systemd unit be active?
+  updatedAt: number;
+};
+
+// service_status — what is actually running (written by orchestrator)
+type ServiceStatusKV = {
+  moduleId: string;
+  installedVersions: string[];
+  activeVersion: string | null;
+  systemdState: "active" | "inactive" | "failed" | "not-found";
+  reconcileState: "ok" | "pending" | "downloading" | "installing"
+    | "starting" | "stopping" | "error" | "version_unavailable";
+  lastError: string | null;
+  runtime: "go" | "deno" | "deno-web";
+  category: "core" | "optional";
+  repo: string;
+  updatedAt: number;
+};
+```
 
 ## Key Message Types
 
@@ -97,7 +129,7 @@ type PlcDataMessage = {
 
 // Service heartbeat — published to service_heartbeats KV bucket every 10s
 type ServiceHeartbeat = {
-  serviceType: "ethernetip" | "plc" | "mqtt" | "graphql" | "modbus" | "opcua" | "network" | "nftables";
+  serviceType: "ethernetip" | "plc" | "mqtt" | "graphql" | "modbus" | "opcua" | "network" | "nftables" | "orchestrator" | "history";
   moduleId: string;          // Unique module identifier
   lastSeen: number;
   startedAt: number;
